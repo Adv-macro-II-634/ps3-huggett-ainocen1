@@ -115,7 +115,7 @@ end
 % define wealth = asset plus income
 w1 = [a+1 a+0.5].*Mu(:)';%wealth
 wealth = w1(w1>=0); 
-earnings=[y_s(1) y_s(2)].*Mu(:)';
+%earnings=[y_s(1) y_s(2)].*Mu(:)';
 popn = Mu(:)';
 
 G=gini(popn,wealth,true);
