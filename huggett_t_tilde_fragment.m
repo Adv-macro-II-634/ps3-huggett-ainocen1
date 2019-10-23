@@ -8,14 +8,10 @@ b = 0.5; % replacement ratio (unemployment benefits)
 y_s = [1, b]; % endowment in employment states
 PI = [.97 .03; .5 .5]; % transition matrix
 
-PI_star = % invariant distribution
-
-
-
 % ASSET VECTOR
 a_lo = -2; %lower bound of grid points
 a_hi = 5; %upper bound of grid points - can try upper bound of 3
-num_a = 10; %try 700 points
+num_a = 700; %try 700 points
 
 a = linspace(a_lo, a_hi, num_a); % asset (row) vector
 
@@ -39,7 +35,7 @@ while abs(aggsav) >= 0.01 ;
     
     % VALUE FUNCTION ITERATION
     v_tol = 1;
-    while v_tol >.0001;
+    while v_tol >.000001;
     
         % CONSTRUCT RETURN + EXPECTED CONTINUATION VALUE
         
@@ -81,23 +77,49 @@ while abs(aggsav) >= 0.01 ;
         for ii = 1:length(emp_ind)
             apr_ind = pol_indx(emp_ind(ii), a_ind(ii)); % which a prime does the policy fn prescribe?
             MuNew(:, apr_ind) = MuNew(:, apr_ind) + ... % which mass of households goes to which exogenous state?
-                (PI(emp_ind(ii), :) * mass)';
+                (PI(emp_ind(ii), :) * Mu(mass(ii)))';
         end
     
-    mu_tol = max(abs(MuNew(:) - Mu(:)));
+        mu_tol = max(abs(MuNew(:) - Mu(:)));
+
+        Mu = MuNew;
+
+    end
     
-    Mu = MuNew;
+    %plot(Mu') % look at the distribution
+    %plot(Mu(2,:)') % look at the unemployed distribution
+    %sum(Mu(:)) % check if it sums to 1
     
-    plot(Mu') % look at the distribution
-    plot(Mu(2,:)') % look at the unemployed distribution
-    sum(Mu(:)) % check if it sums to 1
+    
     
     % AGGREGATE/ INTEGRATE AND CHECK FOR MARKET CLEARING
     
-    Mu.*pol_fn % multiply MU * pol-fn, tells us how much total saving of people at any given state
-    
-    sum(sum(Mu.*pol_fn)) %to get agg saving, sum it up; check if it is close to 0; so now adjust bond price, and repeat until get close to 0
-       
+    % Mu.*pol_fn; % multiply MU * pol-fn, tells us how much total saving of people at any given state
+    aggsav = sum(sum(Mu.*pol_fn)); %to get agg saving, sum it up; check if it is close to 0; so now adjust bond price, and repeat until get close to 0
+       if aggsave>0.0001 %suppose saving too much, q might be too low
+        q_min=q_guess;
+       else
+        q_max=q_guess;
+     end
+     
+     q_guess = (q_min + q_max) / 2;
     
         
 end
+
+% resulting risk-free interest rate (q)
+
+
+%Lorenz curve and Gini for earnings and wealth
+
+% define wealth = asset plus income
+wealth = [a_lo+y_s(2) a_hi+y_s(1)]*Mu(:)';
+earnings= [y_s]*Mu(:)';
+pop = Mu(:)';
+
+gini1=gini(pop,wealth)
+
+gini2=gini(pop,earnings)
+
+
+
