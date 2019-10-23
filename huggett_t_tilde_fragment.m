@@ -107,7 +107,7 @@ while abs(aggsav) >= 0.01 ;
         
 end
 
-% resulting risk-free interest rate (q) = 0.9943
+% resulting risk-free interest rate (q) = 0.9945
 
 
 %Lorenz curve and Gini for earnings and wealth
