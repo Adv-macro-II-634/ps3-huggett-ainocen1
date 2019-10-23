@@ -11,7 +11,7 @@ PI = [.97 .03; .5 .5]; % transition matrix
 % ASSET VECTOR
 a_lo = -2; %lower bound of grid points
 a_hi = 5; %upper bound of grid points - can try upper bound of 3
-num_a = 700; %try 700 points
+num_a = 900; %try 700 points
 
 a = linspace(a_lo, a_hi, num_a); % asset (row) vector
 
@@ -77,7 +77,7 @@ while abs(aggsav) >= 0.01 ;
         for ii = 1:length(emp_ind)
             apr_ind = pol_indx(emp_ind(ii), a_ind(ii)); % which a prime does the policy fn prescribe?
             MuNew(:, apr_ind) = MuNew(:, apr_ind) + ... % which mass of households goes to which exogenous state?
-                (PI(emp_ind(ii), :) * Mu(mass(ii)))';
+                (PI(emp_ind(ii), :) * Mu(emp_ind(ii),a_ind(ii)))';
         end
     
         mu_tol = max(abs(MuNew(:) - Mu(:)));
@@ -86,9 +86,9 @@ while abs(aggsav) >= 0.01 ;
 
     end
     
-    %plot(Mu') % look at the distribution
-    %plot(Mu(2,:)') % look at the unemployed distribution
-    %sum(Mu(:)) % check if it sums to 1
+    plot(Mu') % look at the distribution
+    plot(Mu(2,:)') % look at the unemployed distribution
+    sum(Mu(:)) % check if it sums to 1
     
     
     
@@ -96,30 +96,83 @@ while abs(aggsav) >= 0.01 ;
     
     % Mu.*pol_fn; % multiply MU * pol-fn, tells us how much total saving of people at any given state
     aggsav = sum(sum(Mu.*pol_fn)); %to get agg saving, sum it up; check if it is close to 0; so now adjust bond price, and repeat until get close to 0
-       if aggsave>0.0001 %suppose saving too much, q might be too low
-        q_min=q_guess;
-       else
-        q_max=q_guess;
-     end
+    if aggsav>0 %suppose saving too much, q might be too low
+        q_min=(q_min + q_max) / 2;
+    else
+        q_max=(q_min + q_max) / 2;
+    end
      
-     q_guess = (q_min + q_max) / 2;
+    q_guess = (q_min + q_max) / 2;
     
         
 end
 
-% resulting risk-free interest rate (q)
+% resulting risk-free interest rate (q) = 0.9943
 
 
 %Lorenz curve and Gini for earnings and wealth
 
 % define wealth = asset plus income
-wealth = [a_lo+y_s(2) a_hi+y_s(1)]*Mu(:)';
-earnings= [y_s]*Mu(:)';
-pop = Mu(:)';
+w1 = [a+1 a+0.5].*Mu(:)';%wealth
+wealth = w1(w1>=0); 
+earnings=[y_s(1) y_s(2)].*Mu(:)';
+popn = Mu(:)';
 
-gini1=gini(pop,wealth)
+G=gini(popn,wealth,true);
+figure
+%G2=gini(popn,earnings,true);
+figure
 
-gini2=gini(pop,earnings)
 
 
-
+%Gini fcn
+function [g,l,a] = gini(pop,val,makeplot)
+    % check arguments
+    assert(nargin >= 2, 'gini expects at least two arguments.')
+    if nargin < 3
+        makeplot = false;
+    end
+    assert(numel(pop) == numel(val), ...
+        'gini expects two equally long vectors (%d ~= %d).', ...
+        size(pop,1),size(val,1))
+    pop = [0;pop(:)]; val = [0;val(:)];     % pre-append a zero
+    isok = all(~isnan([pop,val]'))';        % filter out NaNs
+    if sum(isok) < 2
+        warning('gini:lacking_data','not enough data');
+        g = NaN; l = NaN(1,4);
+        return;
+    end
+    pop = pop(isok); val = val(isok);
+    
+    assert(all(pop>=0) && all(val>=0), ...
+        'gini expects nonnegative vectors (neg elements in pop = %d, in val = %d).', ...
+        sum(pop<0),sum(val<0))
+    
+    % process input
+    z = val .* pop;
+    [~,ord] = sort(val);
+    pop    = pop(ord);     z    = z(ord);
+    pop    = cumsum(pop);  z    = cumsum(z);
+    relpop = pop/pop(end); relz = z/z(end);
+    
+    % Gini coefficient
+    g = 1 - sum((relz(1:end-1)+relz(2:end)) .* diff(relpop));
+    
+    % Lorenz curve
+    l = [relpop,relz];
+    a = [pop,z];
+    if makeplot   % ... plot it?
+        area(relpop,relz,'FaceColor',[0.5,0.5,1.0]);    % the Lorentz curve
+        hold on
+        plot([0,1],[0,1],'--k');                        % 45 degree line
+        axis tight      % ranges of abscissa and ordinate are by definition exactly [0,1]
+        axis square     % both axes should be equally long
+        set(gca,'XTick',get(gca,'YTick'))   % ensure equal ticking
+        set(gca,'Layer','top');             % grid above the shaded area
+        grid on;
+        title(['\bfGini coefficient = ',num2str(g)]);
+        xlabel('share of population');
+        ylabel('share of value');
+    end
+    
+end
